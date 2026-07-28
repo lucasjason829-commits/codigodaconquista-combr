@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Protocolo Recomeço</title>
+<style>
+  :root{
+    --bg: #1c0f10;
+    --bg-soft: #2a1416;
+    --card: #ffffff;
+    --card-line: #f3d9d3;
+    --wine: #7a1f2b;
+    --wine-dark: #55131c;
+    --ember: #e0483a;
+    --gold: #d9a441;
+    --ink: #241012;
+    --ink-soft: #6b4a4d;
+    --green: #1f8a4c;
+    --green-dark: #146336;
+    font-size: 16px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family: 'Segoe UI', Roboto, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+  }
+  .screen{ display:none; max-width:480px; margin:0 auto; padding:28px 18px 60px; min-height:100vh; background:#fff; }
+  .screen.active{ display:block; animation: slideIn .45s cubic-bezier(.22,1,.36,1); }
+  @keyframes slideIn{
+    from{ transform: translateY(14px); }
+    to{ transform: translateY(0); }
+  }
+  .option{ animation: popIn .4s ease backwards; }
+  .option:nth-of-type(1){ animation-delay:.05s; }
+  .option:nth-of-type(2){ animation-delay:.12s; }
+  .option:nth-of-type(3){ animation-delay:.19s; }
+  .option:nth-of-type(4){ animation-delay:.26s; }
+  @keyframes popIn{
+    from{ opacity:0; transform: translateX(-10px); }
+    to{ opacity:1; transform: translateX(0); }
+  }
+  .pulse{ animation: pulseGlow 1.8s ease-in-out infinite; }
+  @keyframes pulseGlow{
+    0%,100%{ box-shadow:0 4px 0 rgba(0,0,0,.15), 0 0 0 0 rgba(31,138,76,.35); }
+    50%{ box-shadow:0 4px 0 rgba(0,0,0,.15), 0 0 0 10px rgba(31,138,76,0); }
+  }
+  .eyebrow{
+    display:inline-block; font-size:12px; font-weight:700; letter-spacing:.06em;
+    color: var(--wine); background: #fbeceb; padding:4px 10px; border-radius:20px; margin-bottom:14px;
+  }
+  h1{ font-size:22px; line-height:1.35; margin:0 0 18px; color:var(--ink); font-weight:800; }
+  h2.question{ font-size:19px; line-height:1.4; margin:6px 0 22px; font-weight:800; }
+  .progress-track{ height:6px; background:#f1e3e1; border-radius:4px; overflow:hidden; margin-bottom:22px; }
+  .progress-fill{ height:100%; background: linear-gradient(90deg, var(--wine), var(--ember)); border-radius:4px; transition: width .4s ease; }
+  .option{
+    display:flex; align-items:center; gap:12px; width:100%; text-align:left;
+    background:#fdecec; border:1.5px solid #f3b0ac;
+    border-radius:16px; padding:15px 18px; margin-bottom:12px; font-size:15px; color:#1a1a1a;
+    cursor:pointer; transition: all .15s ease; font-family:inherit;
+  }
+  .option::before{
+    content:''; width:19px; height:19px; min-width:19px; border-radius:50%;
+    border:2px solid var(--wine); background:#fff; flex-shrink:0;
+  }
+  .option:hover{ border-color:var(--wine); background:#fbdedb; }
+  .option:active{ transform: scale(0.98); }
+  .option:active::before{ background: var(--wine); }
+
+  /* Teaser screen */
+  .chat-mock{ background:#f5f0ea; border-radius:16px; padding:16px; margin-bottom:20px; }
+  .bubble{ background:#fff; border-radius:12px; padding:10px 14px; margin-bottom:8px; font-size:13.5px; max-width:80%; box-shadow:0 1px 2px rgba(0,0,0,.06); }
+  .bubble .time{ display:block; font-size:10px; color:#999; margin-top:2px; }
+  .bubble.call{ display:flex; align-items:center; gap:8px; color:var(--wine); font-weight:600; }
+  .cta-btn{
+    display:block; width:100%; background: linear-gradient(180deg, var(--green), var(--green-dark));
+    color:#fff; border:none; border-radius:12px; padding:17px; font-size:15.5px; font-weight:800;
+    text-align:center; cursor:pointer; box-shadow:0 4px 0 rgba(0,0,0,.15); margin:16px 0;
+  }
+  .cta-btn:active{ transform: translateY(2px); box-shadow:0 2px 0 rgba(0,0,0,.15); }
+  .check-list{ margin-top:18px; }
+  .check-item{ display:flex; gap:10px; align-items:flex-start; background:#effbf3; border-radius:10px; padding:12px; margin-bottom:8px; font-size:13.5px; }
+  .check-item .mark{ color:var(--green-dark); font-weight:900; flex-shrink:0; }
+
+  /* Loading screen */
+  .loading-wrap{ text-align:center; padding-top:40px; }
+  .spinner{
+    width:56px; height:56px; margin:0 auto 26px; border-radius:50%;
+    border:5px solid #f1e3e1; border-top-color: var(--wine); animation: spin 1s linear infinite;
+  }
+  @keyframes spin{ to{ transform: rotate(360deg); } }
+  .step-row{ text-align:left; font-size:13.5px; margin-bottom:12px; }
+  .step-row .label{ display:flex; justify-content:space-between; margin-bottom:5px; }
+  .step-bar{ height:6px; background:#f1e3e1; border-radius:4px; overflow:hidden; }
+  .step-bar-fill{ height:100%; width:0%; background: var(--green); border-radius:4px; transition: width 1.1s ease; }
+  .step-pct{ font-weight:700; color: var(--green-dark); }
+
+  /* Bonus stack */
+  .bonus-card{ border:2px solid #f8c2bb; border-radius:16px; margin-bottom:20px; overflow:hidden; background:#fff; }
+  .bonus-warn{ background:#fdecec; color:var(--wine); font-weight:800; font-size:12px; padding:10px 14px; line-height:1.4; }
+  .bonus-body{ padding:16px; }
+  .bonus-head{ display:flex; gap:12px; align-items:flex-start; margin-bottom:8px; }
+  .bonus-icon{ width:42px; height:42px; min-width:42px; border-radius:10px; background:var(--wine); color:#fff; display:flex; align-items:center; justify-content:center; font-size:19px; }
+  .bonus-tag{ display:none; }
+  .bonus-title{ font-size:16px; font-weight:800; line-height:1.3; margin:0; }
+  .bonus-old{ color:#a89a97; text-decoration:line-through; font-size:13.5px; display:block; }
+  .bonus-free{ color:var(--ember); font-weight:900; font-size:19px; display:block; margin:2px 0 10px; }
+  .bonus-desc{ font-size:13.5px; color:#4a3a3c; line-height:1.55; margin:0 0 14px; }
+  .bonus-footer{ display:flex; justify-content:space-between; align-items:center; border-top:1px solid #f3d9d3; padding-top:12px; }
+  .bonus-exclusive{ color:var(--wine); font-weight:700; font-size:12.5px; }
+  .bonus-btn{ background:linear-gradient(135deg,#9b3fd1,#6425a8); color:#fff; font-weight:800; font-size:11.5px; padding:8px 16px; border-radius:20px; white-space:nowrap; }
+  .timer{ display:inline-flex; gap:8px; background:var(--wine-dark); color:#fff; padding:10px 16px; border-radius:10px; font-weight:800; margin:14px auto; }
+  .timer-box{ text-align:center; }
+  .timer-box small{ display:block; font-size:9px; opacity:.75; font-weight:600; }
+  .center{ text-align:center; }
+  .copy-block p{ font-size:14.5px; line-height:1.6; margin:0 0 14px; }
+  .copy-block strong{ color:var(--wine); }
+  .video-placeholder{
+    background:#111; border-radius:14px; aspect-ratio:9/16; display:flex; align-items:center; justify-content:center;
+    color:#eee; font-size:13px; text-align:center; padding:20px; margin-bottom:18px; border:2px dashed var(--gold);
+  }
+  .note{ background:#fff8e6; border:1px solid #f0d989; border-radius:10px; padding:10px 12px; font-size:12.5px; color:#5c4a1a; margin-bottom:16px; }
+  .placeholder-chat{ background:#e9edf0; border-radius:14px; padding:14px; margin-bottom:16px; }
+  .placeholder-chat .msg{ background:#fff; border-radius:10px; padding:8px 12px; font-size:12.5px; margin-bottom:8px; max-width:75%; color:#555; }
+  .fine{ font-size:11.5px; color:#a89a97; text-align:center; margin-top:10px; }
+
+  /* WhatsApp-style testimonial chat */
+  .wa-wrap{ background:#0b141a; border-radius:16px; padding:14px 10px; margin-bottom:16px; }
+  .wa-name{ color:#e9edf0; font-size:12.5px; font-weight:700; margin-bottom:8px; padding:0 4px; }
+  .wa-bubble{ background:#202c33; color:#e9edf0; border-radius:8px; padding:8px 10px; margin-bottom:6px; font-size:13px; max-width:85%; line-height:1.4; }
+  .wa-bubble.out{ margin-left:auto; background:#005c4b; }
+  .wa-time{ font-size:10px; color:#8696a0; display:block; text-align:right; margin-top:2px; }
+  .wa-photo{ background:#1f2c33; border:1.5px dashed #3b4a52; border-radius:10px; min-height:150px; display:flex; align-items:center; justify-content:center; color:#8696a0; font-size:11.5px; text-align:center; padding:14px; margin-bottom:8px; }
+
+  /* Checkout embutido */
+  .checkout-box{ border:1.5px solid #eadedc; border-radius:16px; padding:18px; margin-bottom:16px; }
+  .checkout-price{ text-align:center; margin-bottom:16px; }
+  .checkout-price .old{ text-decoration:line-through; color:#a89a97; font-size:14px; }
+  .checkout-price .now{ font-size:32px; font-weight:900; color:var(--wine); }
+  .field-group{ margin-bottom:12px; }
+  .field-group label{ display:block; font-size:12.5px; font-weight:700; color:var(--ink); margin-bottom:5px; }
+  .field-group input{ width:100%; border:1.5px solid var(--card-line); border-radius:10px; padding:12px 14px; font-size:14.5px; font-family:inherit; }
+  .field-group input:focus{ outline:none; border-color:var(--wine); }
+  .field-row{ display:flex; gap:10px; }
+  .field-row .field-group{ flex:1; }
+  .secure-badge{ display:flex; align-items:center; justify-content:center; gap:6px; font-size:12px; color:var(--ink-soft); margin-top:10px; }
+
+  /* Carrossel de depoimentos */
+  .testi-carousel{ position:relative; width:100%; aspect-ratio:3/4; border-radius:16px; overflow:hidden; margin-bottom:16px; background:#111; }
+  .testi-carousel img{ position:absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; opacity:0; transition:opacity .6s ease; }
+  .testi-carousel img.active{ opacity:1; }
+  .testi-dots{ display:flex; justify-content:center; gap:6px; margin-bottom:20px; }
+  .testi-dots span{ width:7px; height:7px; border-radius:50%; background:#e6cfcb; transition: background .3s ease; }
+  .testi-dots span.active{ background: var(--wine); }
+</style>
+</head>
+<body>
+
+<!-- SCREEN 0: TEASER -->
+<div class="screen active" id="screen-0">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+    <span class="eyebrow" style="margin-bottom:0;">DIAGNÓSTICO GRÁTIS</span>
+    <span style="font-size:11.5px; color:var(--ink-soft); font-weight:700;">⏱ leva 40 segundos</span>
+  </div>
+  <h1>Descubra a mensagem exata que faz ela pensar em você de novo — antes que ela conheça outra pessoa</h1>
+  <div class="chat-mock">
+    <div class="bubble call">📞 Ligação perdida <span class="time">22:41</span></div>
+    <div class="bubble">Oi... você viu minhas stories? <span class="time">22:43</span></div>
+    <div class="bubble call">📞 Ligação perdida <span class="time">23:05</span></div>
+    <div class="bubble">Desculpa te chamar, só queria saber se tá tudo bem com você <span class="time">23:07</span></div>
+  </div>
+  <p style="font-size:14px; text-align:center; font-weight:700; color:var(--wine); margin-bottom:6px;">
+    Isso não é sorte. É consequência de UMA mensagem enviada na hora certa.
+  </p>
+  <p style="font-size:13.5px; text-align:center; color:var(--ink-soft);">
+    Responda 5 perguntas rápidas sobre o seu caso e eu monto seu Protocolo Recomeço personalizado — na hora.
+  </p>
+  <button class="cta-btn pulse" onclick="goTo(1)">COMEÇAR MEU DIAGNÓSTICO →</button>
+  <p class="fine" style="margin-top:-8px;">🔒 Suas respostas são só suas. Ninguém mais vê.</p>
+  <div class="check-list">
+    <div class="check-item"><span class="mark">✓</span> Você recebe um plano de reaproximação feito pro SEU caso.</div>
+    <div class="check-item"><span class="mark">✓</span> Vai descobrir o erro que faz a maioria dos homens perder a ex de vez.</div>
+    <div class="check-item"><span class="mark">✓</span> E o primeiro passo pra reabrir a conversa sem parecer carente.</div>
+  </div>
+</div>
+
+<!-- SCREEN 1: Q1 -->
+<div class="screen" id="screen-1">
+  <span class="eyebrow">PASSO 1 DE 7</span>
+  <div class="progress-track"><div class="progress-fill" style="width:14%"></div></div>
+  <h2 class="question">Como foi o término entre vocês?</h2>
+  <button class="option" onclick="goTo(2)">Ela terminou comigo</button>
+  <button class="option" onclick="goTo(2)">Eu terminei, mas me arrependo</button>
+  <button class="option" onclick="goTo(2)">Foi meio dos dois, mas dói igual</button>
+  <button class="option" onclick="goTo(2)">Nem sei ao certo o que aconteceu</button>
+  <p style="font-size:12px; color:var(--ink-soft); text-align:center; margin-top:4px;">Faltam só mais 6 perguntas rápidas — continua comigo.</p>
+</div>
+
+<!-- SCREEN 2: Q2 -->
+<div class="screen" id="screen-2">
+  <span class="eyebrow">PASSO 2 DE 7</span>
+  <div class="progress-track"><div class="progress-fill" style="width:28%"></div></div>
+  <h2 class="question">O que mais pesa em você agora?</h2>
+  <button class="option" onclick="goTo(3)">A saudade que não passa</button>
+  <button class="option" onclick="goTo(3)">Raiva de mim mesmo pelo que fiz</button>
+  <button class="option" onclick="goTo(3)">Medo de ela seguir a vida sem mim</button>
+  <button class="option" onclick="goTo(3)">Vergonha de ainda sentir isso</button>
+  <p style="font-size:12px; color:var(--ink-soft); text-align:center; margin-top:4px;">Já estou entendendo melhor o seu caso. Faltam 5 perguntas.</p>
+</div>
+
+<!-- SCREEN 3: Q3 -->
+<div class="screen" id="screen-3">
+  <span class="eyebrow">PASSO 3 DE 7</span>
+  <div class="progress-track"><div class="progress-fill" style="width:43%"></div></div>
+  <h2 class="question">Hoje em dia, como está o contato entre vocês?</h2>
+  <button class="option" onclick="goTo(4)">Ainda trocamos mensagem de vez em quando</button>
+  <button class="option" onclick="goTo(4)">Ela só visualiza e não responde</button>
+  <button class="option" onclick="goTo(4)">Fui bloqueado ou ignorado</button>
+  <button class="option" onclick="goTo(4)">Só temos contato por causa de terceiros</button>
+  <p style="font-size:12px; color:var(--ink-soft); text-align:center; margin-top:4px;">Você já passou da metade. Não para agora.</p>
+</div>
+
+<!-- SCREEN 4: Q4 -->
+<div class="screen" id="screen-4">
+  <span class="eyebrow">PASSO 4 DE 7</span>
+  <div class="progress-track"><div class="progress-fill" style="width:57%"></div></div>
+  <h2 class="question">Se você descobrisse que ela já está saindo com outro cara, o que faria?</h2>
+  <button class="option" onclick="goTo(5)">Tentaria conversar com ela mesmo assim</button>
+  <button class="option" onclick="goTo(5)">Ia sumir e fingir que não me importo</button>
+  <button class="option" onclick="goTo(5)">Ia surtar e cometer um erro</button>
+  <button class="option" onclick="goTo(5)">Não sei, nunca pensei nisso de verdade</button>
+  <p style="font-size:12px; color:var(--ink-soft); text-align:center; margin-top:4px;">Faltam só 3 perguntas pro seu protocolo ficar pronto.</p>
+</div>
+
+<!-- SCREEN 5: Q5 (NOVA) -->
+<div class="screen" id="screen-5">
+  <span class="eyebrow">PASSO 5 DE 7</span>
+  <div class="progress-track"><div class="progress-fill" style="width:71%"></div></div>
+  <h2 class="question">Se ela te chamasse pra conversar hoje, você saberia exatamente o que dizer?</h2>
+  <button class="option" onclick="goTo(6)">Não, ia travar e estragar tudo</button>
+  <button class="option" onclick="goTo(6)">Mais ou menos, mas tenho medo de errar</button>
+  <button class="option" onclick="goTo(6)">Sim, mas nunca tive coragem de testar</button>
+  <button class="option" onclick="goTo(6)">Não sei nem se ela ainda responderia</button>
+  <p style="font-size:12px; color:var(--ink-soft); text-align:center; margin-top:4px;">Essa resposta é decisiva pro tipo de mensagem que vou te entregar. Continua.</p>
+</div>
+
+<!-- SCREEN 6: Q6 (NOVA) -->
+<div class="screen" id="screen-6">
+  <span class="eyebrow">PASSO 6 DE 7</span>
+  <div class="progress-track"><div class="progress-fill" style="width:86%"></div></div>
+  <h2 class="question">De 0 a 10, o quanto você quer essa reconciliação de verdade?</h2>
+  <button class="option" onclick="goTo(7)">10 — eu faria qualquer coisa</button>
+  <button class="option" onclick="goTo(7)">Entre 7 e 9 — quero muito, mas com medo</button>
+  <button class="option" onclick="goTo(7)">Entre 4 e 6 — ainda em dúvida</button>
+  <button class="option" onclick="goTo(7)">Menos que isso — só quero entender o que houve</button>
+  <p style="font-size:12px; color:var(--ink-soft); text-align:center; margin-top:4px;">Falta só UMA pergunta. Você já está quase vendo seu protocolo.</p>
+</div>
+
+<!-- SCREEN 7: Q7 (compromisso) -->
+<div class="screen" id="screen-7">
+  <span class="eyebrow">PASSO 7 DE 7</span>
+  <div class="progress-track"><div class="progress-fill" style="width:100%"></div></div>
+  <h2 class="question">Se eu te mostrar um vídeo curto com o passo a passo exato pra reabrir essa porta, você se compromete a assistir até o final?</h2>
+  <button class="option" onclick="goTo(8)">Sim, quero assistir agora</button>
+  <button class="option" onclick="goTo(8)">Sim, e já quero aplicar hoje</button>
+  <button class="option" onclick="goTo(8)">Sim, mas quero entender cada detalhe antes</button>
+</div>
+
+<!-- SCREEN 8: VSL + COPY -->
+<div class="screen" id="screen-8">
+  <div style="text-align:center;">
+  <span class="eyebrow" id="vsl-eyebrow">▶ ASSISTA ENQUANTO MONTAMOS SEU PROTOCOLO</span>
+  <h1 id="vsl-heading" style="text-align:center;">Assista o vídeo abaixo enquanto criamos o seu Protocolo Recomeço personalizado.</h1>
+
+  <div style="border-radius:14px; overflow:hidden; margin:0 auto 18px; aspect-ratio:9/16; max-height:640px; max-width:100%; background:#000; display:flex; align-items:center; justify-content:center;">
+    <video id="vsl-video" width="100%" height="100%" controls playsinline poster="" style="display:block; object-fit:cover; object-position:center;">
+      <source src="https://metodotripe.shop/video/vls.mp4" type="video/mp4">
+      Seu navegador não suporta vídeo HTML5.
+    </video>
+  </div>
+  </div>
+
+  <div id="building-container" style="display:none;">
+    <h2 style="font-size:15.5px; text-align:center; color:var(--wine); margin-bottom:14px;">Montando seu Protocolo Recomeço...</h2>
+    <div id="steps-container-2"></div>
+  </div>
+
+  <div id="reveal-block" style="display:none;">
+    <div class="center" style="margin:10px 0 18px;">
+      <span class="eyebrow" style="background:#effbf3; color:var(--green-dark);">✅ PROTOCOLO GERADO</span>
+    </div>
+    <button class="cta-btn" onclick="goTo(9)">QUERO DESBLOQUEAR MEU PROTOCOLO</button>
+
+    <div class="copy-block">
+      <p>Eu sei o que passa pela sua cabeça agora: <strong>"e se eu tentar e não der certo de novo?"</strong></p>
+      <p>Por isso resolvi fazer diferente de qualquer outro método por aí: <strong>garantia de 90 dias</strong>, sem letra miúda.</p>
+      <p>Funciona assim: você entra no Protocolo Recomeço hoje, aplica o passo a passo, e se em 90 dias sua ex não voltar a te procurar, você recebe cada centavo de volta.</p>
+      <p>Sem pergunta, sem burocracia. Se não funcionar pra você, você não paga nada.</p>
+      <p>Isso porque eu já vi esse método transformar homens travados em relacionamento em homens que reconquistaram respeito, desejo e atenção — sem virar "mais um curso" na prateleira.</p>
+      <p>Você está prestes a investir numa segunda chance de reescrever essa história. A escolha é simples:</p>
+    </div>
+    <div class="check-item" style="background:#fdecea;"><span class="mark" style="color:var(--wine);">✕</span> Continuar rolando a tela e perder essa chance.</div>
+    <div class="check-item"><span class="mark">✓</span> Ou clicar agora e começar o processo de trazer ela de volta.</div>
+
+    <button class="cta-btn" onclick="goTo(9)">CLIQUE AQUI E GARANTA SEU ACESSO</button>
+    <p class="center" style="font-size:12.5px; color:var(--ink-soft);">E se você agir agora, ainda te entrego +4 bônus exclusivos. Olha só:</p>
+  </div>
+</div>
+
+<!-- SCREEN 9: BONUS STACK -->
+<div class="screen" id="screen-9">
+  <div class="center timer">
+    <div class="timer-box"><span id="tmin">15</span><small>MIN</small></div>
+    <div class="timer-box"><span id="tsec">00</span><small>SEG</small></div>
+  </div>
+  <h1 style="text-align:center;">E se você agir agora, eu vou te entregar +4 presentes especiais, olha só!</h1>
+
+  <div class="bonus-card">
+    <div class="bonus-warn">⚠️ DE R$147,00 POR R$0,00 SE VOCÊ AGIR EM 15 MINUTOS</div>
+    <div class="bonus-body">
+      <div class="bonus-head">
+        <div class="bonus-icon">🛡️</div>
+        <div class="bonus-title">Guia do Silêncio Estratégico</div>
+      </div>
+      <span class="bonus-old">R$147,00</span>
+      <span class="bonus-free">GRÁTIS</span>
+      <div class="bonus-desc">Os 5 erros que fazem você parecer carente sem perceber — e como cortar cada um ainda essa semana.</div>
+      <div class="bonus-footer">
+        <span class="bonus-exclusive">🔥 Bônus Exclusivo</span>
+        <span class="bonus-btn">100% GRÁTIS</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="bonus-card">
+    <div class="bonus-warn">⚠️ DE R$197,00 POR R$0,00 SE VOCÊ AGIR EM 15 MINUTOS</div>
+    <div class="bonus-body">
+      <div class="bonus-head">
+        <div class="bonus-icon">💬</div>
+        <div class="bonus-title">Script da Primeira Mensagem</div>
+      </div>
+      <span class="bonus-old">R$197,00</span>
+      <span class="bonus-free">GRÁTIS</span>
+      <div class="bonus-desc">A frase exata pra reabrir a conversa sem soltar "oi, tudo bem?" e sem parecer que está implorando atenção.</div>
+      <div class="bonus-footer">
+        <span class="bonus-exclusive">🔥 Bônus Exclusivo</span>
+        <span class="bonus-btn">100% GRÁTIS</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="bonus-card">
+    <div class="bonus-warn">⚠️ DE R$297,00 POR R$0,00 SE VOCÊ AGIR EM 15 MINUTOS</div>
+    <div class="bonus-body">
+      <div class="bonus-head">
+        <div class="bonus-icon">✉️</div>
+        <div class="bonus-title">Carta de Reconexão Emocional</div>
+      </div>
+      <span class="bonus-old">R$297,00</span>
+      <span class="bonus-free">GRÁTIS</span>
+      <div class="bonus-desc">Um modelo de mensagem mais longa pra usar somente quando o momento certo aparecer — não antes disso.</div>
+      <div class="bonus-footer">
+        <span class="bonus-exclusive">🔥 Bônus Exclusivo</span>
+        <span class="bonus-btn">100% GRÁTIS</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="bonus-card">
+    <div class="bonus-warn">⚠️ DE R$197,00 POR R$0,00 SE VOCÊ AGIR EM 15 MINUTOS</div>
+    <div class="bonus-body">
+      <div class="bonus-head">
+        <div class="bonus-icon">🧭</div>
+        <div class="bonus-title">Mapa do "Novo Cara"</div>
+      </div>
+      <span class="bonus-old">R$197,00</span>
+      <span class="bonus-free">GRÁTIS</span>
+      <div class="bonus-desc">Como agir (e o que NÃO fazer) se ela estiver conhecendo outra pessoa nesse meio tempo.</div>
+      <div class="bonus-footer">
+        <span class="bonus-exclusive">🔥 Bônus Exclusivo</span>
+        <span class="bonus-btn">100% GRÁTIS</span>
+      </div>
+    </div>
+  </div>
+
+  <p class="center" style="font-size:12.5px;">Esses bônus especiais ficarão disponíveis por somente <strong style="color:var(--wine);">15 minutos!</strong></p>
+  <button class="cta-btn" onclick="goTo(10)">GARANTIR ACESSO COM OS BÔNUS</button>
+</div>
+
+<!-- SCREEN 10: SOCIAL PROOF (carrossel de prints reais) + FINAL CTA -->
+<div class="screen" id="screen-10">
+  <h1>Homens que estavam exatamente onde você está agora</h1>
+
+  <div class="testi-carousel" id="testi-carousel">
+    <img src="https://i.ibb.co/Kj96TTj0/Whats-App-Image-2026-07-27-at-21-48-42.jpg" class="active">
+    <img src="https://i.ibb.co/WhfWhGW/Whats-App-Image-2026-07-27-at-21-48-58.jpg">
+    <img src="https://i.ibb.co/jvGvzC8W/Whats-App-Image-2026-07-27-at-21-49-12.jpg">
+    <img src="https://i.ibb.co/CfXmLsR/Whats-App-Image-2026-07-27-at-21-49-36.jpg">
+    <img src="https://i.ibb.co/FbcrS19K/Whats-App-Image-2026-07-27-at-21-50-10.jpg">
+    <img src="https://i.ibb.co/hS7RGVB/Whats-App-Image-2026-07-27-at-21-50-30.jpg">
+  </div>
+  <div class="testi-dots" id="testi-dots"></div>
+
+  <div class="copy-block">
+    <p>Esses caras estavam bloqueados. Ignorados. Cheios de dúvida se ainda dava tempo.</p>
+    <p>Decidiram agir. Aplicaram o protocolo. E o jogo virou.</p>
+    <p>Hoje são eles que recebem mensagem primeiro. A escolha começa com uma decisão.</p>
+  </div>
+
+  <button class="cta-btn" onclick="goTo(11)">CLIQUE AQUI PARA COMEÇAR AGORA</button>
+  <p class="fine">Protocolo Recomeço — Garantia incondicional de 90 dias.</p>
+</div>
+
+<!-- SCREEN 11: CHECKOUT EMBUTIDO -->
+<div class="screen" id="screen-11">
+  <h1 style="text-align:center;">Finalize seu acesso ao Protocolo Recomeço</h1>
+
+  <img src="https://i.ibb.co/Z6rzzCgg/YCp-JEv2-L.png" style="width:100%; border-radius:14px; margin-bottom:18px; display:block;">
+
+  <div class="checkout-price">
+    <span class="old">De R$97,00</span><br>
+    <span class="now">R$19,90</span>
+    <p style="font-size:12.5px; color:var(--ink-soft); margin-top:4px;">Pagamento único via PIX • Acesso imediato</p>
+  </div>
+
+  <div class="checkout-box">
+    <div class="field-group">
+      <label>Nome completo</label>
+      <input type="text" placeholder="Seu nome completo">
+    </div>
+    <div class="field-group">
+      <label>E-mail (Gmail)</label>
+      <input type="email" placeholder="seuemail@gmail.com">
+    </div>
+    <div class="field-group">
+      <label>WhatsApp (com DDD)</label>
+      <input type="tel" placeholder="(00) 00000-0000">
+    </div>
+    <div class="field-group">
+      <label>CPF</label>
+      <input type="text" placeholder="000.000.000-00">
+    </div>
+    <button class="cta-btn pulse" style="margin-top:6px;" onclick="alert('Aqui entra a chamada real pro seu gateway de pagamento (Mercado Pago, Hotmart, etc.) quando você configurar — vai gerar o QR Code do PIX nessa hora.')">GERAR PIX — R$19,90</button>
+    <div class="secure-badge">🔒 Ambiente 100% seguro</div>
+  </div>
+
+  <div class="check-list">
+    <div class="check-item"><span class="mark">✓</span> Acesso liberado na hora, direto no seu e-mail.</div>
+    <div class="check-item"><span class="mark">✓</span> Garantia incondicional de 90 dias.</div>
+    <div class="check-item"><span class="mark">✓</span> +4 bônus exclusivos inclusos sem custo extra.</div>
+  </div>
+</div>
+
+<script>
+let current = 0;
+function goTo(n){
+  document.getElementById('screen-'+current).classList.remove('active');
+  document.getElementById('screen-'+n).classList.add('active');
+  current = n;
+  window.scrollTo(0,0);
+  if(n === 9){ startTimer(); }
+}
+
+function startBuilding(){
+  const steps = [
+    "Analisando o padrão de afastamento dela",
+    "Identificando o gatilho certo pro seu caso",
+    "Montando a mensagem de reabertura de contato",
+    "Calculando o melhor momento pra agir",
+    "Ajustando o tom pra não parecer carência",
+    "Finalizando seu Protocolo Recomeço"
+  ];
+  const totalDuration = 120000; // ~2 minutos no total, pra dar tempo de ver a VSL
+  const perStep = totalDuration / steps.length;
+
+  const container = document.getElementById('steps-container-2');
+  const buildingBox = document.getElementById('building-container');
+  const reveal = document.getElementById('reveal-block');
+  reveal.style.display = 'none';
+  buildingBox.style.display = 'block';
+
+  container.innerHTML = "";
+  steps.forEach((s, i) => {
+    const row = document.createElement('div');
+    row.className = 'step-row';
+    row.innerHTML = `<div class="label"><span>${s}</span><span class="step-pct" id="pct2-${i}">0%</span></div>
+      <div class="step-bar"><div class="step-bar-fill" id="fill2-${i}" style="transition:none;"></div></div>`;
+    container.appendChild(row);
+  });
+
+  function runStep(i){
+    if(i >= steps.length){
+      setTimeout(() => {
+        buildingBox.style.display = 'none';
+        reveal.style.display = 'block';
+        reveal.style.animation = 'slideIn .5s cubic-bezier(.22,1,.36,1)';
+        document.getElementById('vsl-heading').textContent = 'Seu Protocolo Recomeço está pronto. Continue assistindo e role a tela pra ver os próximos passos.';
+        document.getElementById('vsl-eyebrow').textContent = '✅ PROTOCOLO GERADO';
+        document.getElementById('vsl-eyebrow').style.background = '#effbf3';
+        document.getElementById('vsl-eyebrow').style.color = 'var(--green-dark)';
+      }, 300);
+      return;
+    }
+    const fillEl = document.getElementById('fill2-'+i);
+    const pctEl = document.getElementById('pct2-'+i);
+    let pct = 10;
+    fillEl.style.width = pct + '%';
+    pctEl.textContent = pct + '%';
+    const ticks = 18; // quantos incrementos até 100%
+    const tickTime = perStep / ticks;
+    const increment = (100 - pct) / ticks;
+    let count = 0;
+    const interval = setInterval(() => {
+      count++;
+      pct = Math.min(100, Math.round(10 + increment * count));
+      fillEl.style.width = pct + '%';
+      pctEl.textContent = pct + '%';
+      if(count >= ticks || pct >= 100){
+        clearInterval(interval);
+        setTimeout(() => runStep(i + 1), 150);
+      }
+    }, tickTime);
+  }
+  runStep(0);
+}
+
+function startTimer(){
+  let totalSeconds = 15*60;
+  const minEl = document.getElementById('tmin');
+  const secEl = document.getElementById('tsec');
+  clearInterval(window._timerInt);
+  window._timerInt = setInterval(() => {
+    if(totalSeconds <= 0){ clearInterval(window._timerInt); return; }
+    totalSeconds--;
+    const m = Math.floor(totalSeconds/60);
+    const s = totalSeconds % 60;
+    minEl.textContent = String(m).padStart(2,'0');
+    secEl.textContent = String(s).padStart(2,'0');
+  }, 1000);
+}
+
+document.getElementById('vsl-video').addEventListener('play', function(){
+  setTimeout(() => { startBuilding(); }, 10000);
+}, { once: true });
+
+// Carrossel de depoimentos (troca sozinho)
+(function(){
+  const carousel = document.getElementById('testi-carousel');
+  const dotsWrap = document.getElementById('testi-dots');
+  if(!carousel) return;
+  const imgs = carousel.querySelectorAll('img');
+  imgs.forEach((img, i) => {
+    const dot = document.createElement('span');
+    if(i === 0) dot.classList.add('active');
+    dotsWrap.appendChild(dot);
+  });
+  const dots = dotsWrap.querySelectorAll('span');
+  let idx = 0;
+  setInterval(() => {
+    imgs[idx].classList.remove('active');
+    dots[idx].classList.remove('active');
+    idx = (idx + 1) % imgs.length;
+    imgs[idx].classList.add('active');
+    dots[idx].classList.add('active');
+  }, 2800);
+})();
+
+</script>
+</body>
+</html>

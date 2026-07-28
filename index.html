@@ -425,25 +425,34 @@
     <p style="font-size:12.5px; color:var(--ink-soft); margin-top:4px;">Pagamento único via PIX • Acesso imediato</p>
   </div>
 
-  <div class="checkout-box">
+  <div class="checkout-box" id="checkout-form">
     <div class="field-group">
       <label>Nome completo</label>
-      <input type="text" placeholder="Seu nome completo">
+      <input type="text" id="ck-nome" placeholder="Seu nome completo">
     </div>
     <div class="field-group">
       <label>E-mail (Gmail)</label>
-      <input type="email" placeholder="seuemail@gmail.com">
+      <input type="email" id="ck-email" placeholder="seuemail@gmail.com">
     </div>
     <div class="field-group">
       <label>WhatsApp (com DDD)</label>
-      <input type="tel" placeholder="(00) 00000-0000">
+      <input type="tel" id="ck-tel" placeholder="(00) 00000-0000">
     </div>
     <div class="field-group">
       <label>CPF</label>
-      <input type="text" placeholder="000.000.000-00">
+      <input type="text" id="ck-cpf" placeholder="000.000.000-00">
     </div>
-    <button class="cta-btn pulse" style="margin-top:6px;" onclick="alert('Aqui entra a chamada real pro seu gateway de pagamento (Mercado Pago, Hotmart, etc.) quando você configurar — vai gerar o QR Code do PIX nessa hora.')">GERAR PIX — R$19,90</button>
+    <button class="cta-btn pulse" id="ck-btn" style="margin-top:6px;" onclick="gerarPix()">GERAR PIX — R$19,90</button>
     <div class="secure-badge">🔒 Ambiente 100% seguro</div>
+    <p id="ck-erro" style="color:var(--wine); font-size:13px; text-align:center; margin-top:10px; display:none;"></p>
+  </div>
+
+  <div id="checkout-pix" style="display:none; text-align:center;">
+    <p style="font-weight:700; margin-bottom:10px;">Escaneie o QR Code ou copie o código abaixo:</p>
+    <img id="pix-qr-img" style="width:220px; height:220px; margin:0 auto 14px; display:block; border-radius:10px; border:1px solid var(--card-line);">
+    <textarea id="pix-copia-cola" readonly style="width:100%; height:70px; font-size:11px; padding:10px; border-radius:10px; border:1.5px solid var(--card-line); margin-bottom:10px;"></textarea>
+    <button class="cta-btn" style="background:linear-gradient(180deg,#555,#333);" onclick="copiarPix()">COPIAR CÓDIGO PIX</button>
+    <p id="pix-status" style="margin-top:14px; font-size:13.5px; color:var(--ink-soft);">⏳ Aguardando pagamento...</p>
   </div>
 
   <div class="check-list">
@@ -539,6 +548,89 @@ function startTimer(){
     minEl.textContent = String(m).padStart(2,'0');
     secEl.textContent = String(s).padStart(2,'0');
   }, 1000);
+}
+
+// ===== INTEGRAÇÃO PIX (Mercado Pago via Vercel Functions) =====
+const API_BASE = '/api'; // na Vercel fica no mesmo domínio, não precisa domínio completo
+
+let _pixInterval = null;
+
+async function gerarPix(){
+  const nome = document.getElementById('ck-nome').value.trim();
+  const email = document.getElementById('ck-email').value.trim();
+  const tel = document.getElementById('ck-tel').value.trim();
+  const cpf = document.getElementById('ck-cpf').value.trim();
+  const erroEl = document.getElementById('ck-erro');
+  const btn = document.getElementById('ck-btn');
+
+  erroEl.style.display = 'none';
+  if(!nome || !email || !cpf){
+    erroEl.textContent = 'Preenche nome, e-mail e CPF pra continuar.';
+    erroEl.style.display = 'block';
+    return;
+  }
+
+  btn.textContent = 'Gerando PIX...';
+  btn.disabled = true;
+
+  try{
+    const res = await fetch(API_BASE + '/criar-pix', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nome, email, telefone: tel, cpf })
+    });
+    const data = await res.json();
+
+    if(!data.success){
+      erroEl.textContent = 'Não foi possível gerar o PIX. Tenta de novo em instantes.';
+      erroEl.style.display = 'block';
+      btn.textContent = 'GERAR PIX — R$19,90';
+      btn.disabled = false;
+      return;
+    }
+
+    document.getElementById('checkout-form').style.display = 'none';
+    document.getElementById('checkout-pix').style.display = 'block';
+    document.getElementById('pix-qr-img').src = 'data:image/png;base64,' + data.qr_code_base64;
+    document.getElementById('pix-copia-cola').value = data.qr_code;
+
+    _pixInterval = setInterval(() => checarPagamento(data.payment_id), 5000);
+
+  }catch(e){
+    erroEl.textContent = 'Erro de conexão com o servidor de pagamento.';
+    erroEl.style.display = 'block';
+    btn.textContent = 'GERAR PIX — R$19,90';
+    btn.disabled = false;
+  }
+}
+
+async function checarPagamento(paymentId){
+  try{
+    const res = await fetch(API_BASE + '/verificar-pix?payment_id=' + paymentId);
+    const data = await res.json();
+    const statusEl = document.getElementById('pix-status');
+
+    if(data.status === 'approved'){
+      clearInterval(_pixInterval);
+      statusEl.textContent = '✅ Pagamento aprovado! Redirecionando...';
+      statusEl.style.color = 'var(--green-dark)';
+      setTimeout(() => {
+        // Troque pelo link da sua área de membros / página de acesso liberado
+        window.location.href = '/acesso-liberado';
+      }, 1500);
+    } else if(data.status === 'rejected' || data.status === 'cancelled'){
+      clearInterval(_pixInterval);
+      statusEl.textContent = '❌ Pagamento não aprovado. Gere um novo PIX.';
+      statusEl.style.color = 'var(--wine)';
+    }
+  }catch(e){ /* silencioso, tenta de novo no próximo intervalo */ }
+}
+
+function copiarPix(){
+  const el = document.getElementById('pix-copia-cola');
+  el.select();
+  document.execCommand('copy');
+  alert('Código copiado! Cole no seu app do banco.');
 }
 
 document.getElementById('vsl-video').addEventListener('play', function(){

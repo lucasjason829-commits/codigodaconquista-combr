@@ -2,10 +2,10 @@
 // Rota final na Vercel: /api/verificar-pix?payment_id=XXXX
 
 export default async function handler(req, res) {
-  const accessToken = process.env.MP_ACCESS_TOKEN;
+  const accessToken = process.env.MERCADOPAGO_ACCESS_TOKEN;
 
   if (!accessToken) {
-    return res.status(500).json({ status: 'error', message: 'MP_ACCESS_TOKEN não configurado na Vercel.' });
+    return res.status(500).json({ status: 'error', message: 'MERCADOPAGO_ACCESS_TOKEN não configurado na Vercel.' });
   }
 
   const { payment_id } = req.query;

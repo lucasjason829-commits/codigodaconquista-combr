@@ -7,11 +7,11 @@ export default async function handler(req, res) {
   }
 
   // ⚠️ Configure essa variável no painel da Vercel:
-  // Project > Settings > Environment Variables > MP_ACCESS_TOKEN = seu Access Token de produção
-  const accessToken = process.env.MP_ACCESS_TOKEN;
+  // Project > Settings > Environment Variables > MERCADOPAGO_ACCESS_TOKEN = seu Access Token de produção
+  const accessToken = process.env.MERCADOPAGO_ACCESS_TOKEN;
 
   if (!accessToken) {
-    return res.status(500).json({ success: false, error: 'MP_ACCESS_TOKEN não configurado na Vercel.' });
+    return res.status(500).json({ success: false, error: 'MERCADOPAGO_ACCESS_TOKEN não configurado na Vercel.' });
   }
 
   const { nome, email, telefone, cpf } = req.body || {};
